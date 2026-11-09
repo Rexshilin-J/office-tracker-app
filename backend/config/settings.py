@@ -1,3 +1,4 @@
+
 """
 Django settings for config project.
 """
@@ -16,7 +17,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-# Security settings
+# --------------------------------------------------
+# SECURITY SETTINGS
+# --------------------------------------------------
+
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
     "django-insecure-dev-only-key-change-before-deployment",
@@ -26,15 +30,21 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,10.0.2.2").split(",")
+    for host in os.getenv(
+        "DJANGO_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,10.0.2.2",
+    ).split(",")
     if host.strip()
 ]
-# In development allow any host so a real phone can reach the PC by its LAN IP.
+
 if DEBUG and not os.getenv("DJANGO_ALLOWED_HOSTS"):
     ALLOWED_HOSTS = ["*"]
 
 
-# Application definition
+# --------------------------------------------------
+# APPLICATION DEFINITION
+# --------------------------------------------------
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -43,12 +53,15 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    
+    # CORS
+    "corsheaders",
+
+    # REST Framework
     "rest_framework",
     "rest_framework.authtoken",
 
+    # Project Apps
     "apps.accounts",
-
     "apps.attendance",
     "apps.time_tracking",
     "apps.clients",
@@ -59,9 +72,16 @@ INSTALLED_APPS = [
 ]
 
 
+# --------------------------------------------------
+# MIDDLEWARE
+# --------------------------------------------------
+
 MIDDLEWARE = [
-    "config.cors.SimpleCorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+
+    # CORS middleware must be before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -71,8 +91,30 @@ MIDDLEWARE = [
 ]
 
 
+# --------------------------------------------------
+# CORS SETTINGS
+# --------------------------------------------------
+
+# Allow Flutter Web running on localhost with dynamic ports
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
+
+# Allow the Render backend to receive requests from local Flutter Web.
+# Add your deployed frontend origin here when you host it online.
+
+
+# --------------------------------------------------
+# URL CONFIGURATION
+# --------------------------------------------------
+
 ROOT_URLCONF = "config.urls"
 
+
+# --------------------------------------------------
+# TEMPLATES
+# --------------------------------------------------
 
 TEMPLATES = [
     {
@@ -93,7 +135,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-# Database: Supabase PostgreSQL
+# --------------------------------------------------
+# DATABASE - SUPABASE POSTGRESQL
+# --------------------------------------------------
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
@@ -105,8 +150,7 @@ if DATABASE_URL:
         )
     }
 else:
-    # Allows Django checks to run before Supabase is configured.
-    # Migrations require a valid DATABASE_URL.
+    # Local fallback database
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -115,7 +159,10 @@ else:
     }
 
 
-# Password validation
+# --------------------------------------------------
+# PASSWORD VALIDATION
+# --------------------------------------------------
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": (
@@ -144,7 +191,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
+# --------------------------------------------------
+# INTERNATIONALIZATION
+# --------------------------------------------------
+
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "Asia/Kolkata"
@@ -154,13 +204,22 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files
+# --------------------------------------------------
+# STATIC FILES
+# --------------------------------------------------
+
 STATIC_URL = "static/"
 
 
-# Default primary key field type
+# --------------------------------------------------
+# DEFAULT PRIMARY KEY
+# --------------------------------------------------
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# Email configuration (development console)
+# --------------------------------------------------
+# EMAIL CONFIGURATION
+# --------------------------------------------------
+
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
