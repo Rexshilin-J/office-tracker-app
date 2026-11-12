@@ -5,7 +5,25 @@ import 'package:flutter/material.dart';
 import '../../core/api.dart';
 import '../../core/session.dart';
 import '../../shared/ui.dart';
+import 'employee_attendance_tab.dart';
+import 'employee_dashboard_tab.dart';
+import 'employee_expenses_tab.dart';
+import 'employee_notifications.dart';
+import 'employee_profile_screen.dart';
+import 'employee_projects_tab.dart';
+import 'employee_tasks_tab.dart';
 
+class _EmpTab {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Widget Function() build;
+  const _EmpTab(this.label, this.icon, this.color, this.build);
+}
+
+/// The employee app: Home, Tasks, Projects, Attendance and Expenses tabs, with
+/// Notifications, Profile and Logout in the app bar. Like the admin app, only
+/// the visible tab is built (and polls the server).
 class EmployeeHome extends StatefulWidget {
   final Session session;
   const EmployeeHome({super.key, required this.session});
@@ -18,11 +36,65 @@ class _EmployeeHomeState extends State<EmployeeHome> {
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  /// If the session ends (logout, or the server rejects the token) while a
+  /// detail screen is open, close those screens so Login is what you see.
+  void _onSessionChanged() {
+    if (!widget.session.loggedIn && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  List<_EmpTab> _tabs() => [
+        _EmpTab(
+          'Home',
+          Icons.dashboard_rounded,
+          const Color(0xFF4F46E5),
+          () => EmployeeDashboardTab(
+            session: widget.session,
+            onGoToTab: (i) => setState(() => _index = i),
+          ),
+        ),
+        _EmpTab('Tasks', Icons.task_alt_rounded, const Color(0xFF0D9488),
+            () => const MyTasksTab()),
+        _EmpTab('Projects', Icons.folder_rounded, const Color(0xFF2563EB),
+            () => const MyProjectsTab()),
+        _EmpTab('Attendance', Icons.event_available_rounded,
+            const Color(0xFF16A34A), () => const MyAttendanceTab()),
+        _EmpTab('Expenses', Icons.receipt_long_rounded, const Color(0xFFF97316),
+            () => const MyExpensesTab()),
+      ];
+
+  @override
   Widget build(BuildContext context) {
+    final tabs = _tabs();
+    final tab = tabs[_index];
+
     return Scaffold(
       appBar: gradientAppBar(
-        title: Text('Hi, ${widget.session.username}'),
+        color: tab.color,
+        title: Text(_index == 0 ? 'Hi, ${widget.session.username}' : tab.label),
         actions: [
+          const NotificationBell(),
+          IconButton(
+            tooltip: 'My profile',
+            icon: const Icon(Icons.account_circle_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MyProfileScreen(session: widget.session),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
@@ -34,22 +106,18 @@ class _EmployeeHomeState extends State<EmployeeHome> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: const [TodayTab(), TimeLogTab()],
-      ),
+      body: KeyedSubtree(key: ValueKey(tab.label), child: tab.build()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.today_rounded, color: Color(0xFF86A8F5)),
-              selectedIcon: Icon(Icons.today_rounded, color: Color(0xFF2563EB)),
-              label: 'Today'),
-          NavigationDestination(
-              icon: Icon(Icons.history_rounded, color: Color(0xFFC4A5F5)),
-              selectedIcon: Icon(Icons.history_rounded, color: Color(0xFF7C3AED)),
-              label: 'Time Log'),
+        indicatorColor: tab.color.withValues(alpha: 0.16),
+        destinations: [
+          for (final t in tabs)
+            NavigationDestination(
+              icon: Icon(t.icon, color: t.color.withValues(alpha: 0.55)),
+              selectedIcon: Icon(t.icon, color: t.color),
+              label: t.label,
+            ),
         ],
       ),
     );

@@ -11,8 +11,8 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import capability
 
-from .models import Expense
-from .serializers import ExpenseSerializer
+from .models import Expense, ExpenseClaim
+from .serializers import ExpenseClaimSerializer, ExpenseSerializer
 
 PERMS = [IsAuthenticated, capability("manage_expenses")]
 
@@ -116,4 +116,45 @@ class ExpenseSummaryAPIView(APIView):
                 "by_category_month": _breakdown(month_qs),
                 "monthly": monthly,
             }
+        )
+
+
+# ------------------------------------------------------- employee expense claims
+class MyClaimListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET  /api/expenses/claims/?status=PENDING|APPROVED|REJECTED  -> my claims
+    POST /api/expenses/claims/                                   -> submit a claim
+
+    Open to every logged-in user but always scoped to their OWN claims.
+    New claims are always PENDING; only an approver can change that.
+    """
+
+    serializer_class = ExpenseClaimSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = ExpenseClaim.objects.filter(submitted_by=self.request.user).select_related(
+            "project", "reviewed_by"
+        )
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(submitted_by=self.request.user)
+
+
+class MyClaimDetailAPIView(generics.RetrieveAPIView):
+    """GET /api/expenses/claims/<id>/ - one of my own claims."""
+
+    serializer_class = ExpenseClaimSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExpenseClaim.objects.filter(submitted_by=self.request.user).select_related(
+            "project", "reviewed_by"
         )

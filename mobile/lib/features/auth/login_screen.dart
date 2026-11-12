@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_username.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _error = 'Username and password enter pannunga.');
+      setState(() => _error = 'Username / Employee ID and password enter pannunga.');
       return;
     }
     setState(() {
@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _username,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
-                    labelText: 'Username',
+                    labelText: 'Username or Employee ID',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                 ),

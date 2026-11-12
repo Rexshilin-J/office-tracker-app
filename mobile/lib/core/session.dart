@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -91,6 +92,15 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Ask the server to revoke this login token as well, so a copied or stolen
+    // token stops working. Fire-and-forget: the request reads the token
+    // synchronously right here, before it is cleared below, and a failure
+    // (offline, already expired) must never stop the user from logging out.
+    if (Api.instance.token != null) {
+      unawaited(
+        Api.instance.post('/api/auth/logout/').then<void>((_) {}, onError: (_) {}),
+      );
+    }
     Api.instance.token = null;
     Api.instance.userId = null;
     user = null;

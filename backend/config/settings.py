@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "apps.tasks",
     "apps.reports",
     "apps.expenses",
+    "apps.notifications",
 ]
 
 

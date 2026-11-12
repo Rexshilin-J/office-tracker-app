@@ -155,3 +155,46 @@ class AttendanceManageDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [capability("manage_attendance")]
     queryset = Attendance.objects.select_related("user")
+
+
+# ------------------------------------------------------------ employee history
+from datetime import timedelta  # noqa: E402
+
+from django.utils.dateparse import parse_date  # noqa: E402
+from rest_framework.exceptions import ValidationError  # noqa: E402
+
+
+class MyAttendanceHistoryAPIView(generics.ListAPIView):
+    """
+    GET /api/attendance/history/?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+
+    The logged-in user's OWN attendance records, newest first.
+    Defaults to the last 30 days; never more than 366 rows.
+    """
+
+    serializer_class = AttendanceAdminSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def _date(self, name, default):
+        raw = self.request.query_params.get(name)
+        if not raw:
+            return default
+        try:
+            value = parse_date(raw)
+        except ValueError:
+            value = None
+        if value is None:
+            raise ValidationError({name: "Use YYYY-MM-DD."})
+        return value
+
+    def get_queryset(self):
+        date_to = self._date("date_to", timezone.localdate())
+        date_from = self._date("date_from", date_to - timedelta(days=29))
+        if date_from > date_to:
+            raise ValidationError({"date_from": "date_from cannot be after date_to."})
+        return Attendance.objects.filter(
+            user=self.request.user, date__range=(date_from, date_to)
+        ).order_by("-date")[:366]
+

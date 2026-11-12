@@ -64,6 +64,29 @@ class EmployeeRegistrationAPIView(APIView):
         )
 
 
+def find_login_user(identifier):
+    """
+    Who is trying to log in? Accepts the username, the Employee ID or the email
+    (the last two and a differently-cased username are case-insensitive).
+
+    An exact username always wins. Anything ambiguous (two accounts match) is
+    refused rather than guessed, so nobody can log in as the wrong person.
+    """
+    ident = (identifier or "").strip()
+    if not ident:
+        return None
+    for matches in (
+        User.objects.filter(username=ident),
+        User.objects.filter(employee_profile__employee_id__iexact=ident),
+        User.objects.filter(username__iexact=ident),
+        User.objects.filter(email__iexact=ident),
+    ):
+        found = list(matches[:2])
+        if len(found) == 1:
+            return found[0]
+    return None
+
+
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -72,7 +95,13 @@ class LoginAPIView(APIView):
         username = request.data.get("username", "")
         password = request.data.get("password", "")
 
-        user = authenticate(username=username, password=password)
+        candidate = find_login_user(username)
+        # Always call authenticate (even with no match) so the response time
+        # does not reveal whether an account exists.
+        user = authenticate(
+            username=candidate.username if candidate else username,
+            password=password,
+        )
 
         if user is None or not user.is_active:
             return Response(
@@ -97,6 +126,17 @@ class MeAPIView(APIView):
 
     def get(self, request):
         return Response(serialize_user(request.user, with_capabilities=True))
+
+
+class LogoutAPIView(APIView):
+    """POST /api/auth/logout/ - revoke the caller's token so it stops working."""
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        Token.objects.filter(user=request.user).delete()
+        return Response({"message": "Logged out."}, status=status.HTTP_200_OK)
 
 
 class EmployeeListAPIView(APIView):
